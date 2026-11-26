@@ -39,7 +39,7 @@ async function loadModel(source, label='Museo MAS PEQUIEÑO.glb', sizeBytes=null
  }
 }
 document.querySelector('#file').addEventListener('change',async e=>{const f=e.target.files?.[0];if(!f)return;if(objectUrl)URL.revokeObjectURL(objectUrl);objectUrl=URL.createObjectURL(f);await loadModel(objectUrl,f.name,f.size)});
-loadModel('./Museo%20MAS%20PEQUIE%C3%91O.glb');
+loadModel('./museo.glb');
 function dispose(o){o.traverse(n=>{if(n.geometry)n.geometry.dispose();if(n.material){for(const m of (Array.isArray(n.material)?n.material:[n.material])){for(const v of Object.values(m))if(v?.isTexture)v.dispose();m.dispose()}}})}
 document.querySelector('#auto').onclick=()=>{spinning=!spinning;document.querySelector('#auto').textContent=spinning?'Pausar giro':'Iniciar giro'};
 document.querySelector('#home').onclick=()=>{if(!model)return;const b=new THREE.Box3().setFromObject(model),r=Math.max(b.getSize(new THREE.Vector3()).length()*.72,1);pivot.rotation.set(0,0,0);camera.position.set(r*1.5,-r*1.8,r*1.25);controls.target.set(0,0,0);controls.update()};
