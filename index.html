@@ -1,0 +1,33 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Visor 3D · Museo 360°</title>
+<style>
+:root{color-scheme:dark;font-family:system-ui,-apple-system,Segoe UI,sans-serif}*{box-sizing:border-box}body{margin:0;background:#11151b;color:#eef2f7}header{padding:14px 18px;background:#1a2029;display:flex;gap:14px;align-items:center;justify-content:space-between;flex-wrap:wrap}h1{font-size:17px;margin:0}p{margin:4px 0 0;color:#aeb8c6;font-size:13px}.tools{display:flex;gap:8px;align-items:center;flex-wrap:wrap}button,.filelabel{border:1px solid #485364;background:#252e3b;color:#f4f6f8;padding:9px 12px;border-radius:8px;cursor:pointer;font:inherit;font-size:13px}button:hover,.filelabel:hover{background:#344154}input[type=file]{display:none}label{font-size:13px;color:#c7d0dc}input[type=range]{width:110px}#stage{height:calc(100vh - 90px);min-height:420px;position:relative}canvas{display:block;width:100%;height:100%}#status{position:absolute;left:16px;bottom:14px;background:#111b;color:#dce5ef;padding:8px 10px;border-radius:7px;font-size:12px;max-width:calc(100% - 32px)}#hint{position:absolute;right:16px;bottom:14px;color:#dce5ef;background:#111b;padding:8px 10px;border-radius:7px;font-size:12px}#busy{position:absolute;inset:0;display:grid;place-items:center;color:#e7edf5;background:#11151b} @media(max-width:600px){#stage{height:calc(100vh - 145px)}#hint{display:none}}
+</style>
+<script type="importmap">{"imports":{"three":"https://cdn.jsdelivr.net/npm/three@0.170.0/build/three.module.js","three/addons/":"https://cdn.jsdelivr.net/npm/three@0.170.0/examples/jsm/"}}</script>
+</head><body>
+<header><div><h1>Visor 3D · Museo 360°</h1><p>Selecciona tu archivo GLB. El giro automático usa el origen global (0, 0, 0).</p></div><div class="tools"><label class="filelabel" for="file">Abrir archivo GLB</label><input id="file" type="file" accept=".glb,.gltf,model/gltf-binary,model/gltf+json"><button id="auto">Iniciar giro</button><button id="home">Restablecer vista</button><label for="speed">Velocidad</label><input id="speed" type="range" min="1" max="60" value="12"><span id="speedval">12°/s</span></div></header>
+<div id="stage"><div id="busy">Carga el archivo «Museo MAS PEQUIEÑO.glb» con el botón superior.</div><div id="status">Arrastra para orbitar la cámara · rueda para zoom</div><div id="hint">Giro alrededor del eje Z</div></div>
+<script type="module">
+import * as THREE from 'three';
+import {GLTFLoader} from 'three/addons/loaders/GLTFLoader.js';
+import {OrbitControls} from 'three/addons/controls/OrbitControls.js';
+const stage=document.querySelector('#stage'),busy=document.querySelector('#busy'),status=document.querySelector('#status');
+const scene=new THREE.Scene();scene.background=new THREE.Color(0x202630);
+const camera=new THREE.PerspectiveCamera(42,stage.clientWidth/stage.clientHeight,.01,100000);camera.position.set(80,-105,75);
+const renderer=new THREE.WebGLRenderer({antialias:true,preserveDrawingBuffer:true});renderer.setPixelRatio(Math.min(devicePixelRatio,2));renderer.setSize(stage.clientWidth,stage.clientHeight);renderer.outputColorSpace=THREE.SRGBColorSpace;renderer.toneMapping=THREE.ACESFilmicToneMapping;renderer.toneMappingExposure=1.15;stage.appendChild(renderer.domElement);
+scene.add(new THREE.HemisphereLight(0xffffff,0x7b8798,2.0));const key=new THREE.DirectionalLight(0xffffff,2.4);key.position.set(50,-60,100);scene.add(key);const fill=new THREE.DirectionalLight(0xc8dcff,1.0);fill.position.set(-70,40,25);scene.add(fill);
+const grid=new THREE.GridHelper(200,40,0x566273,0x38414e);grid.rotation.x=Math.PI/2;grid.position.z=-.02;scene.add(grid);
+const controls=new OrbitControls(camera,renderer.domElement);controls.enableDamping=true;controls.target.set(0,0,0);controls.update();
+let model=null,objectUrl=null,spinning=false,last=performance.now();const pivot=new THREE.Group();scene.add(pivot);
+const loader=new GLTFLoader();
+document.querySelector('#file').addEventListener('change',async e=>{const f=e.target.files?.[0];if(!f)return;busy.style.display='grid';busy.textContent='Cargando modelo…';status.textContent=`${f.name} · ${(f.size/1048576).toFixed(1)} MB`;if(model){pivot.remove(model);dispose(model)}if(objectUrl)URL.revokeObjectURL(objectUrl);objectUrl=URL.createObjectURL(f);try{const gltf=await loader.loadAsync(objectUrl);model=gltf.scene;pivot.add(model);pivot.rotation.set(0,0,0);const box=new THREE.Box3().setFromObject(model);const size=box.getSize(new THREE.Vector3());const radius=Math.max(size.length()*.72,1);camera.near=Math.max(radius/10000,.001);camera.far=radius*100;camera.position.set(radius*1.5,-radius*1.8,radius*1.25);camera.updateProjectionMatrix();controls.target.set(0,0,0);controls.maxDistance=radius*30;controls.minDistance=radius*.01;controls.update();busy.style.display='none';status.textContent=`${f.name} · ${(f.size/1048576).toFixed(1)} MB · ${gltf.scene.children.length} elementos principales`;}catch(err){busy.style.display='grid';busy.textContent='No se pudo cargar el GLB. Comprueba que el archivo sea válido y que haya conexión a internet para cargar Three.js.';console.error(err)}});
+function dispose(o){o.traverse(n=>{if(n.geometry)n.geometry.dispose();if(n.material){for(const m of (Array.isArray(n.material)?n.material:[n.material])){for(const v of Object.values(m))if(v?.isTexture)v.dispose();m.dispose()}}})}
+document.querySelector('#auto').onclick=()=>{spinning=!spinning;document.querySelector('#auto').textContent=spinning?'Pausar giro':'Iniciar giro'};
+document.querySelector('#home').onclick=()=>{if(!model)return;const b=new THREE.Box3().setFromObject(model),r=Math.max(b.getSize(new THREE.Vector3()).length()*.72,1);pivot.rotation.set(0,0,0);camera.position.set(r*1.5,-r*1.8,r*1.25);controls.target.set(0,0,0);controls.update()};
+document.querySelector('#speed').oninput=e=>document.querySelector('#speedval').textContent=e.target.value+'°/s';
+function animate(now){requestAnimationFrame(animate);const dt=Math.min((now-last)/1000,.1);last=now;if(spinning&&model)pivot.rotation.z+=Number(document.querySelector('#speed').value)*Math.PI/180*dt;controls.update();renderer.render(scene,camera)}requestAnimationFrame(animate);
+new ResizeObserver(()=>{const w=stage.clientWidth,h=stage.clientHeight;camera.aspect=w/h;camera.updateProjectionMatrix();renderer.setSize(w,h)}).observe(stage);
+</script></body></html>
